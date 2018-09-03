@@ -91,6 +91,7 @@ CPUS["APEXC"] = true
 CPUS["CP1610"] = true
 CPUS["F8"] = true
 CPUS["LH5801"] = true
+CPUS["ZEZINHO2"] = true
 CPUS["PATINHOFEIO"] = true
 CPUS["PDP1"] = true
 CPUS["SATURN"] = true
@@ -1061,6 +1062,7 @@ function linkProjects_mame_mess(_target, _subtarget)
 		"interton",
 		"intv",
 		"isc",
+		"ita",
 		"kaypro",
 		"koei",
 		"kontron",
@@ -3436,6 +3438,12 @@ files {
 createMESSProjects(_target, _subtarget, "unisys")
 files {
 	MAME_DIR .. "src/mame/drivers/univac.cpp",
+}
+
+createMESSProjects(_target, _subtarget, "ita")
+files {
+	MAME_DIR .. "src/mame/drivers/zezinho.cpp",
+	MAME_DIR .. "src/mame/includes/zezinho.h",
 }
 
 createMESSProjects(_target, _subtarget, "usp")
