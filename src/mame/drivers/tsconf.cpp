@@ -45,7 +45,7 @@ FAQ-RUS: https://forum.tslabs.info/viewtopic.php?f=35&t=157
     ROM: https://github.com/tslabs/zx-evo/blob/master/pentevo/rom/bin/ts-bios.rom (validated on: 2021-12-14)
 
 HowTo:
-# Use ts-bios.rom above. You also need tr-dos roms which simpliest(?) to get from pentagon.
+# Use ts-bios.rom above. You also need tr-dos roms which simplest(?) to get from pentagon.
 # Create SD image "wc.img"
 # Copy WC files from archive https://github.com/tslabs/zx-evo/blob/master/pentevo/soft/WC/wc.zip
 # Tech Demos (currently *.spg only): http://prods.tslabs.info/index.php?t=4
@@ -86,8 +86,7 @@ TILE_GET_INFO_MEMBER(tsconf_state::get_tile_info_16c)
 	u8 *tile_info_addr = &m_ram->pointer()[(m_regs[T_MAP_PAGE] << 14) + row_offset + col_offset];
 	u8 hi = tile_info_addr[1];
 
-	u32 /*u16*/ tile = ((u16(hi) & 0x0f) << 8) | tile_info_addr[0];
-	tile = tile / tilemap.cols() * 64 * 8 + (tile % tilemap.cols()); // same as: tmp_tile_oversized_to_code()
+	u16 tile = ((u16(hi) & 0x0f) << 8) | tile_info_addr[0];
 	u8 pal = (BIT(m_regs[PAL_SEL], 4 + Layer * 2, 2) << 2) | BIT(hi, 4, 2);
 	tileinfo.set(TM_TILES0 + Layer, tile, pal, TILE_FLIPYX(BIT(hi, 6, 2)));
 	tileinfo.category = tile == 0 ? 2 : 1;
@@ -162,16 +161,19 @@ static const gfx_layout tsconf_charlayout =
 
 static const gfx_layout tsconf_tile_16cpp_layout =
 {
-	8,
-	8,
-	64 * 64 * 8,
+	8, 8,
+	64 * 64,
 	4,
 	{STEP4(0, 1)},
 	{STEP8(0, 4)},
-	{STEP8(0, 256 * 8)},
-	// Much more tiles when needed. Because tiles are in RAW formut but we don't know region properties.
-	8 * 4
+	{STEP8(0, 256 * 8)}
 };
+
+static LAYOUT_CHAR_OFFSET_FUNC(layout_tile_offset) {
+	u32 col = code % 64;
+	u32 row = code / 64;
+	return (width * planes) * (row * height * 8 * 8 + col);
+}
 
 static GFXDECODE_START(gfx_tsconf)
 	GFXDECODE_ENTRY("maincpu", 0, tsconf_charlayout, 0xf7, 1)         // TM_TS_CHAR : TXT
@@ -188,11 +190,15 @@ void tsconf_state::video_start()
 
 	m_ts_tilemap[TM_TS_CHAR] = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(tsconf_state::get_tile_info_txt)), TILEMAP_SCAN_ROWS, 8, 8, 128, 64);
 
+	m_gfxdecode->gfx(TM_TILES0)->set_layout_char_offset_func(layout_tile_offset);
 	m_ts_tilemap[TM_TILES0] = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(tsconf_state::get_tile_info_16c<0>)), TILEMAP_SCAN_ROWS, 8, 8, 64, 64);
 	m_ts_tilemap[TM_TILES0]->set_transparent_pen(0);
 
+	m_gfxdecode->gfx(TM_TILES1)->set_layout_char_offset_func(layout_tile_offset);
 	m_ts_tilemap[TM_TILES1] = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(tsconf_state::get_tile_info_16c<1>)), TILEMAP_SCAN_ROWS, 8, 8, 64, 64);
 	m_ts_tilemap[TM_TILES1]->set_transparent_pen(0);
+
+	m_gfxdecode->gfx(TM_SPRITES)->set_layout_char_offset_func(layout_tile_offset);
 
 	m_frame_irq_timer = timer_alloc(TIMER_IRQ_FRAME);
 	m_line_irq_timer = timer_alloc(TIMER_IRQ_SCANLINE);

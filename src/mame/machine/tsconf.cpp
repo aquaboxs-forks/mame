@@ -29,11 +29,6 @@ enum v_mode : u8
 	VM_TXT
 };
 
-static constexpr u32 tmp_tile_oversized_to_code(u16 code)
-{
-	return code / 64 * 64 * 8 + (code % 64);
-}
-
 // https://github.com/tslabs/zx-evo/blob/master/pentevo/vdac/vdac1/cpld/top.v
 static constexpr u8 pwm_to_rgb[32] = {
 	0, 10, 21, 31, 42, 53, 63, 74,
@@ -324,7 +319,7 @@ void tsconf_state::spectrum_UpdateScreenBitmap(bool eof)
 		{
 			// Update unrendered above excluding current line.
 			screen.sety(m_previous_tsu_vpos, m_screen->vpos() - 1);
-			// Too expencive to draw every line. Batch 8+ for now.
+			// Too expensive to draw every line. Batch 8+ for now.
 			draw = screen.height() > 7;
 			if (!draw && (screen.bottom() + 1) == get_screen_area().bottom())
 			{
@@ -415,7 +410,7 @@ void tsconf_state::draw_sprites(const rectangle &cliprect)
 				u8 tile_col = (code % 64) + flipx * width8;
 				for (auto ix = x; ix <= x + width8 * 8; ix = ix + 8)
 				{
-					m_gfxdecode->gfx(TM_SPRITES)->prio_transpen(m_screen->curbitmap().as_ind16(), cliprect, tmp_tile_oversized_to_code((tile_row % 64) * 64 + (tile_col % 64)), pal, flipx, flipy, ix, iy, m_screen->priority(), pmask, 0);
+					m_gfxdecode->gfx(TM_SPRITES)->prio_transpen(m_screen->curbitmap().as_ind16(), cliprect, (tile_row % 64) * 64 + (tile_col % 64), pal, flipx, flipy, ix, iy, m_screen->priority(), pmask, 0);
 					tile_col += flipx ? -1 : 1;
 				}
 				tile_row += flipy ? -1 : 1;
