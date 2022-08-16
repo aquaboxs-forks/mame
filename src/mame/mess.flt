@@ -405,6 +405,7 @@ interpro/interpro.cpp
 interton/vc4000.cpp
 isc/compucolor.cpp
 jazz/jazz.cpp
+juku/juku.cpp
 kawai/kawai_acr20.cpp
 kawai/kawai_k1.cpp
 kawai/kawai_k4.cpp
@@ -854,7 +855,6 @@ skeleton/itt3030.cpp
 skeleton/itt9216.cpp
 skeleton/jade.cpp
 skeleton/jonos.cpp
-skeleton/juku.cpp
 skeleton/junior80.cpp
 skeleton/kron.cpp
 skeleton/learnwin.cpp
