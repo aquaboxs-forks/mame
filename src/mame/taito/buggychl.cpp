@@ -32,6 +32,18 @@ Notes:
 - There is also a 4-channel version of the sound board for the cockpit
   cabinet (ROMs not dumped)
 
+Other known undumped versions:
+- Another ranking song version - ported to PS2 "Taito Memories".
+  https://youtu.be/JXIvaM5508c?si=wCojMales2Kg9L7u&t=270 (Ranking 1st song)
+  https://youtu.be/Btnl9FYTiL8?si=rrGTblIfOlIQo6NJ&t=308 (Ranking 2nd song)
+- 2 player joystick version - after inserting a coin, 
+  instead of "START YOUR ENGINE", it displays "PUSH ONLY 1-PLAYER BUTTON".
+  https://youtu.be/iE9-q4IruS4?si=eYL5_iXDZDyH9TS_&t=31
+  (The title of this video states that this is the joystick version)
+- Japanese version - after inserting a coin, instead of "START YOUR ENGINE", 
+  it displays "セレクトボタンをおしてね！！(Press select button!!)" 
+  and "クレジット(Credit)" instead of "CREDIT".
+  https://youtu.be/gmC8Al1oCpo?si=JTO6eJ5Q_6-bj_NQ&t=6
 
 Memory Map
 ----------
@@ -649,6 +661,7 @@ CUSTOM_INPUT_MEMBER( buggychl_state::pedal_in_r )
 }
 
 
+// defaults verified with manual, and yes: all ON for bank 2 while all OFF for banks 1/3
 static INPUT_PORTS_START( buggychl )
 	PORT_START("DSW1")
 	PORT_DIPNAME( 0x03, 0x03, "Game Over Bonus" ) PORT_DIPLOCATION("SW1:1,2")   // Arks/Flags/Fuel
@@ -668,7 +681,7 @@ static INPUT_PORTS_START( buggychl )
 	PORT_DIPNAME( 0x40, 0x40, DEF_STR( Flip_Screen ) ) PORT_DIPLOCATION("SW1:7")
 	PORT_DIPSETTING(    0x40, DEF_STR( Off ) )
 	PORT_DIPSETTING(    0x00, DEF_STR( On ) )
-	PORT_BIT( 0x80, IP_ACTIVE_HIGH, IPT_UNUSED )        // Only listed as OFF in the manual
+	PORT_DIPUNUSED_DIPLOC( 0x80, 0x80, "SW1:8" )        // Only listed as OFF in the manual
 
 	PORT_START("DSW2")
 	PORT_DIPNAME( 0x0f, 0x00, DEF_STR( Coin_A ) ) PORT_DIPLOCATION("SW2:1,2,3,4")
