@@ -133,7 +133,7 @@ public:
 	void mephisto3(machine_config &config);
 
 protected:
-	virtual void machine_start() override;
+	virtual void machine_start() override ATTR_COLD;
 	virtual void machine_reset() override { m_reset = true; }
 
 private:
@@ -154,14 +154,14 @@ private:
 	u8 m_esb_select = 0;
 
 	// address maps
-	void mephisto_map(address_map &map);
-	void mephistoj_map(address_map &map);
-	void mephisto2_map(address_map &map);
-	void mephistoe2_map(address_map &map);
-	void mephistoe2a_map(address_map &map);
-	void mephisto3_map(address_map &map);
-	void mephisto_io(address_map &map);
-	void mephistoj_io(address_map &map);
+	void mephisto_map(address_map &map) ATTR_COLD;
+	void mephistoj_map(address_map &map) ATTR_COLD;
+	void mephisto2_map(address_map &map) ATTR_COLD;
+	void mephistoe2_map(address_map &map) ATTR_COLD;
+	void mephistoe2a_map(address_map &map) ATTR_COLD;
+	void mephisto3_map(address_map &map) ATTR_COLD;
+	void mephisto_io(address_map &map) ATTR_COLD;
+	void mephistoj_io(address_map &map) ATTR_COLD;
 
 	// I/O handlers
 	int clear_r();
@@ -200,13 +200,13 @@ INPUT_CHANGED_MEMBER(brikett_state::change_cpu_freq)
 	if (newval & 8)
 	{
 		/*
-			3rd hardware model has 2 XTALs, it will increase CPU voltage (and speed)
-			when running on mains power, the 3.579545MHz XTAL is still used for IRQ.
+		    3rd hardware model has 2 XTALs, it will increase CPU voltage (and speed)
+		    when running on mains power, the 3.579545MHz XTAL is still used for IRQ.
 
-			Mephisto III could be fitted with a 12MHz XTAL instead of 6.144MHz and
-			a newer CDP1805CE CPU by Hobby Computer Centrale on request. (It is
-			unexpected that the 1805 accepts such a high overclock, but tests show
-			that it is indeed twice faster)
+		    Mephisto III could be fitted with a 12MHz XTAL instead of 6.144MHz and
+		    a newer CDP1805CE CPU by Hobby Computer Centrale on request. (It is
+		    unexpected that the 1805 accepts such a high overclock, but tests show
+		    that it is indeed twice faster)
 		*/
 		static const XTAL freq[3] = { 3.579545_MHz_XTAL, 6.144_MHz_XTAL, 12_MHz_XTAL };
 		m_maincpu->set_unscaled_clock(freq[(newval & 3) % 3]);

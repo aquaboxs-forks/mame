@@ -2,23 +2,24 @@
 // copyright-holders:Angelo Salese
 /**************************************************************************************************
 
-Casio FP-1100 (GX-205)
+Casio FP-1000 / FP-1100 (GX-205)
 
 TODO:
 - Keyboard not working, should trigger INTF0 on key pressed (for PF only), main CPU receives
   garbage from sub (command protocol 0x04 -> <scancode> -> 0x00 -> 0x00)
+  As a _ugly_ workaround you can intercept ASCII scancodes from main CPU with bp d18 A=<value> with
+  any emu::keypost trigger.
 - Memory maps and machine configuration for FP-1000 with reduced VRAM;
 - Unimplemented instruction PER triggered in sub CPU;
 - SCREEN 1 mode has heavy corrupted GFXs and runs at half speed, interlace mode?
 - Cassette Load is really not working, uses a complex 6 pin discrete circuitry;
 - Sub CPU needs proper WAIT line from uPD7801;
 - Main CPU waitstates;
-- bus slots (FP-1060I/O, 1 slot can take up to 4 sub slots below):
-  - FP-1020FD (FDC uPD765, 2x 5.25 floppy DSDD, id = 0x04)
-  - FP-1030 (RAMPACK, id = 0x01)
-  - FP-1031 (ROMPACK, id = 0x00)
-  - FP-1035RS (RS-232C, id = 0x02)
-  - One of the ROMPACKs has undumped Test Mode (cfr. page 94 of service manual)
+- centronics options (likely):
+  - FP-1011PL (plotter)
+  - FP-1012PR (OEM Epson MX-80)
+  - FP-1014PRK (Kanji printer)
+  - FP-1017PR (OEM Epson MX-160)
 
 ===================================================================================================
 
@@ -46,10 +47,12 @@ The keyboard is a separate unit.  It contains a beeper.
 #include "emu.h"
 
 #include "bus/centronics/ctronics.h"
+#include "bus/fp1000/fp1000_exp.h"
 #include "cpu/upd7810/upd7810.h"
 #include "cpu/z80/z80.h"
 #include "imagedev/cassette.h"
 #include "machine/gen_latch.h"
+#include "machine/input_merger.h"
 #include "machine/timer.h"
 #include "sound/beep.h"
 #include "video/mc6845.h"
@@ -84,13 +87,16 @@ public:
 		, m_beep(*this, "beeper")
 		, m_centronics(*this, "centronics")
 		, m_cassette(*this, "cassette")
+		, m_slot(*this, "slot.%u", 0)
+		, m_irqs_int(*this, { "irqs_inta", "irqs_intb", "irqs_intc", "irqs_intd"})
 	{ }
 
 	void fp1100(machine_config &config);
+	DECLARE_INPUT_CHANGED_MEMBER(fkey_hit_cb);
 
 protected:
-	virtual void machine_start() override;
-	virtual void machine_reset() override;
+	virtual void machine_start() override ATTR_COLD;
+	virtual void machine_reset() override ATTR_COLD;
 
 private:
 	required_device<cpu_device> m_maincpu;
@@ -104,10 +110,12 @@ private:
 	required_device<beep_device> m_beep;
 	required_device<centronics_device> m_centronics;
 	required_device<cassette_image_device> m_cassette;
+	required_device_array<fp1000_exp_slot_device, 2> m_slot;
+	required_device_array<input_merger_device, 4> m_irqs_int;
 
-	void main_map(address_map &map);
-	void io_map(address_map &map);
-	void sub_map(address_map &map);
+	void main_map(address_map &map) ATTR_COLD;
+	void io_map(address_map &map) ATTR_COLD;
+	void sub_map(address_map &map) ATTR_COLD;
 
 	void main_bank_w(u8 data);
 	void irq_mask_w(u8 data);
@@ -201,7 +209,9 @@ other bits not used
 void fp1100_state::main_bank_w(u8 data)
 {
 	m_iplview.select(BIT(data, 1));
-//  m_slot_num = (m_slot_num & 3) | ((data & 1) << 2); //??
+	const u8 slot_select = BIT(data, 0);
+	m_slot[slot_select ^ 1]->select_w(false);
+	m_slot[slot_select]->select_w(true);
 }
 
 /*
@@ -313,6 +323,7 @@ d6,7     - not used
 void fp1100_state::kbd_row_w(u8 data)
 {
 	m_kbd_row = data;
+	// guess: expect keyboard in open state for leds
 	if (BIT(m_kbd_row, 5))
 	{
 		switch(m_kbd_row & 0xf)
@@ -374,7 +385,7 @@ u8 fp1100_state::portb_r()
 {
 	u8 data = m_keyboard[m_kbd_row & 15]->read();
 	LOG("%s: PortB:%X:%X\n",machine().describe_context(),m_kbd_row,data);
-	//m_subcpu->set_input_line(UPD7810_INTF0, BIT(data, 7) ? ASSERT_LINE : CLEAR_LINE);
+
 	if (BIT(m_kbd_row, 5))
 		return data;
 
@@ -460,13 +471,23 @@ void fp1100_state::hsync_cb(int state)
 	}
 }
 
+// KI8 specifically connects to INT0 on hit
+// TODO: stub, hangs by banging keys too fast
+INPUT_CHANGED_MEMBER(fp1100_state::fkey_hit_cb)
+{
+	if (!oldval && newval)
+	{
+		m_subcpu->set_input_line(UPD7810_INTF0, ASSERT_LINE);
+	}
+}
+
 
 static INPUT_PORTS_START( fp1100 )
 	PORT_START("KEY.0")
 	PORT_BIT(0xff, IP_ACTIVE_HIGH, IPT_UNUSED)
 
 	PORT_START("KEY.1")
-	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_END)                                  PORT_NAME("BREAK")
+	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_END)                                  PORT_NAME("BREAK") PORT_CHANGED_MEMBER(DEVICE_SELF, fp1100_state, fkey_hit_cb, 1)
 	PORT_BIT(0x60, IP_ACTIVE_HIGH, IPT_UNUSED)
 	PORT_BIT(0x10, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_LALT)                                 PORT_NAME("\u30ab\u30ca (KANA)")  // カナ
 	PORT_BIT(0x08, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_CAPSLOCK)                             PORT_NAME("CAPS")   PORT_CHAR(UCHAR_MAMEKEY(CAPSLOCK))
@@ -475,7 +496,7 @@ static INPUT_PORTS_START( fp1100 )
 	PORT_BIT(0x01, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_LSHIFT)   PORT_CODE(KEYCODE_RSHIFT)   PORT_NAME("SHIFT")  PORT_CHAR(UCHAR_SHIFT_1)
 
 	PORT_START("KEY.2")
-	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F10)        PORT_NAME("PF0")
+	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F10)        PORT_NAME("PF0") PORT_CHANGED_MEMBER(DEVICE_SELF, fp1100_state, fkey_hit_cb, 2)
 	PORT_BIT(0x40, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_ENTER_PAD)  PORT_NAME("ENTER")                  PORT_CHAR(UCHAR_MAMEKEY(ENTER_PAD))
 	PORT_BIT(0x20, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_ASTERISK)   PORT_NAME("KP*")
 	PORT_BIT(0x10, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_Z)          PORT_NAME(u8"Z  \u30c4  \u30c3")    PORT_CHAR('Z') PORT_CHAR('z')  // ツ ッ
@@ -485,7 +506,7 @@ static INPUT_PORTS_START( fp1100 )
 	PORT_BIT(0x01, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_A)          PORT_NAME(u8"A  \u30c1")            PORT_CHAR('A') PORT_CHAR('a')  // チ
 
 	PORT_START("KEY.3")
-	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F1)         PORT_NAME("PF1")                    PORT_CHAR(UCHAR_MAMEKEY(F1))
+	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F1)         PORT_NAME("PF1")                    PORT_CHAR(UCHAR_MAMEKEY(F1)) PORT_CHANGED_MEMBER(DEVICE_SELF, fp1100_state, fkey_hit_cb, 3)
 	PORT_BIT(0x40, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_COMMA_PAD)  PORT_NAME("KP,")
 	PORT_BIT(0x20, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_SLASH_PAD)  PORT_NAME("KP/")                    PORT_CHAR(UCHAR_MAMEKEY(SLASH_PAD))
 	PORT_BIT(0x10, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_X)          PORT_NAME(u8"X  \u30b5")            PORT_CHAR('X') PORT_CHAR('x')
@@ -495,7 +516,7 @@ static INPUT_PORTS_START( fp1100 )
 	PORT_BIT(0x01, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_S)          PORT_NAME(u8"S  \u30c8")            PORT_CHAR('S') PORT_CHAR('s')
 
 	PORT_START("KEY.4")
-	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F2)         PORT_NAME("PF2")                    PORT_CHAR(UCHAR_MAMEKEY(F2))
+	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F2)         PORT_NAME("PF2")                    PORT_CHAR(UCHAR_MAMEKEY(F2)) PORT_CHANGED_MEMBER(DEVICE_SELF, fp1100_state, fkey_hit_cb, 4)
 	PORT_BIT(0x40, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_DEL_PAD)    PORT_NAME("KP.")                    PORT_CHAR(UCHAR_MAMEKEY(DEL_PAD))
 	PORT_BIT(0x20, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_DEL)        PORT_NAME("DEL")                    PORT_CHAR(UCHAR_MAMEKEY(DEL))
 	PORT_BIT(0x10, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_C)          PORT_NAME(u8"C  \u30bd")            PORT_CHAR('C') PORT_CHAR('c')  // ソ
@@ -505,7 +526,7 @@ static INPUT_PORTS_START( fp1100 )
 	PORT_BIT(0x01, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_D)          PORT_NAME(u8"D  \u30b7")            PORT_CHAR('D') PORT_CHAR('d')  // シ
 
 	PORT_START("KEY.5")
-	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F3)         PORT_NAME("PF3")                    PORT_CHAR(UCHAR_MAMEKEY(F3))
+	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F3)         PORT_NAME("PF3")                    PORT_CHAR(UCHAR_MAMEKEY(F3)) PORT_CHANGED_MEMBER(DEVICE_SELF, fp1100_state, fkey_hit_cb, 5)
 	PORT_BIT(0x40, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_000_PAD)    PORT_NAME("KP000")
 	PORT_BIT(0x20, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_RIGHT)      PORT_NAME("Right")                  PORT_CHAR(UCHAR_MAMEKEY(RIGHT))
 	PORT_BIT(0x10, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_V)          PORT_NAME(u8"V  \u30d2")            PORT_CHAR('V') PORT_CHAR('v')  // ヒ
@@ -515,7 +536,7 @@ static INPUT_PORTS_START( fp1100 )
 	PORT_BIT(0x01, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F)          PORT_NAME(u8"F  \u30cf")            PORT_CHAR('F') PORT_CHAR('f')  // ハ
 
 	PORT_START("KEY.6")
-	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F4)         PORT_NAME("PF4")                    PORT_CHAR(UCHAR_MAMEKEY(F4))
+	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F4)         PORT_NAME("PF4")                    PORT_CHAR(UCHAR_MAMEKEY(F4)) PORT_CHANGED_MEMBER(DEVICE_SELF, fp1100_state, fkey_hit_cb, 6)
 	PORT_BIT(0x40, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_SPACE)      PORT_NAME("Space")                  PORT_CHAR(' ')
 	PORT_BIT(0x20, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_PGDN)       PORT_NAME("INS")                    PORT_CHAR(UCHAR_MAMEKEY(INSERT))
 	PORT_BIT(0x10, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_B)          PORT_NAME(u8"B  \u30b3")            PORT_CHAR('B') PORT_CHAR('b')  // コ
@@ -525,7 +546,7 @@ static INPUT_PORTS_START( fp1100 )
 	PORT_BIT(0x01, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_G)          PORT_NAME(u8"G  \u30ad")            PORT_CHAR('G') PORT_CHAR('g')  // キ
 
 	PORT_START("KEY.7")
-	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F5)         PORT_NAME("PF5")                    PORT_CHAR(UCHAR_MAMEKEY(F5))
+	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F5)         PORT_NAME("PF5")                    PORT_CHAR(UCHAR_MAMEKEY(F5)) PORT_CHANGED_MEMBER(DEVICE_SELF, fp1100_state, fkey_hit_cb, 7)
 	PORT_BIT(0x40, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_0_PAD)      PORT_NAME("KP0")                    PORT_CHAR(UCHAR_MAMEKEY(0_PAD))
 	PORT_BIT(0x20, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_DOWN)       PORT_NAME("Down")                   PORT_CHAR(UCHAR_MAMEKEY(DOWN))
 	PORT_BIT(0x10, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_N)          PORT_NAME(u8"N  \u30df")            PORT_CHAR('N') PORT_CHAR('n')  // ミ
@@ -535,7 +556,7 @@ static INPUT_PORTS_START( fp1100 )
 	PORT_BIT(0x01, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_H)          PORT_NAME(u8"H  \u30af")            PORT_CHAR('H') PORT_CHAR('h')  // ク
 
 	PORT_START("KEY.8")
-	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F6)         PORT_NAME("PF6")                    PORT_CHAR(UCHAR_MAMEKEY(F6))
+	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F6)         PORT_NAME("PF6")                    PORT_CHAR(UCHAR_MAMEKEY(F6)) PORT_CHANGED_MEMBER(DEVICE_SELF, fp1100_state, fkey_hit_cb, 8)
 	PORT_BIT(0x40, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_2_PAD)      PORT_NAME("KP2")                    PORT_CHAR(UCHAR_MAMEKEY(2_PAD))
 	PORT_BIT(0x20, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_UP)         PORT_NAME("Up")                     PORT_CHAR(UCHAR_MAMEKEY(UP))
 	PORT_BIT(0x10, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_M)          PORT_NAME(u8"M  \u30e2")            PORT_CHAR('M') PORT_CHAR('m')  // モ
@@ -545,7 +566,7 @@ static INPUT_PORTS_START( fp1100 )
 	PORT_BIT(0x01, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_J)          PORT_NAME(u8"J  \u30de")            PORT_CHAR('J') PORT_CHAR('j')  // マ
 
 	PORT_START("KEY.9")
-	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F7)         PORT_NAME("PF7")                    PORT_CHAR(UCHAR_MAMEKEY(F7))
+	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F7)         PORT_NAME("PF7")                    PORT_CHAR(UCHAR_MAMEKEY(F7)) PORT_CHANGED_MEMBER(DEVICE_SELF, fp1100_state, fkey_hit_cb, 9)
 	PORT_BIT(0x40, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_1_PAD)      PORT_NAME("KP1")                    PORT_CHAR(UCHAR_MAMEKEY(1_PAD))
 	PORT_BIT(0x20, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_PGUP)       PORT_NAME("HOME  CLS")              PORT_CHAR(UCHAR_MAMEKEY(HOME))
 	PORT_BIT(0x10, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_COMMA)      PORT_NAME(u8",  <  \u30cd  \u3001") PORT_CHAR(',') PORT_CHAR('<')  // ネ 、
@@ -555,7 +576,7 @@ static INPUT_PORTS_START( fp1100 )
 	PORT_BIT(0x01, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_K)          PORT_NAME(u8"K  \u30ce")            PORT_CHAR('K') PORT_CHAR('k')  // ノ
 
 	PORT_START("KEY.10")
-	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F8)         PORT_NAME("PF8")                    PORT_CHAR(UCHAR_MAMEKEY(F8))
+	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F8)         PORT_NAME("PF8")                    PORT_CHAR(UCHAR_MAMEKEY(F8)) PORT_CHANGED_MEMBER(DEVICE_SELF, fp1100_state, fkey_hit_cb, 10)
 	PORT_BIT(0x40, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_BACKSLASH)  PORT_NAME(u8"]  }  \u30e0  \u300d") PORT_CHAR(']') PORT_CHAR('}')  // ム 」
 	PORT_BIT(0x20, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_LEFT)       PORT_NAME("Left")                   PORT_CHAR(UCHAR_MAMEKEY(LEFT))
 	PORT_BIT(0x10, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_STOP)       PORT_NAME(u8".  >  \u30eb  \u3002") PORT_CHAR('.') PORT_CHAR('>')  // ル 。
@@ -565,7 +586,7 @@ static INPUT_PORTS_START( fp1100 )
 	PORT_BIT(0x01, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_L)          PORT_NAME(u8"L  \u30ea")            PORT_CHAR('L') PORT_CHAR('l')  // リ
 
 	PORT_START("KEY.11")
-	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F9)         PORT_NAME("PF9")                    PORT_CHAR(UCHAR_MAMEKEY(F9))
+	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_F9)         PORT_NAME("PF9")                    PORT_CHAR(UCHAR_MAMEKEY(F9)) PORT_CHANGED_MEMBER(DEVICE_SELF, fp1100_state, fkey_hit_cb, 11)
 	PORT_BIT(0x40, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_CLOSEBRACE) PORT_NAME(u8"[  {  \u309c  \u300c") PORT_CHAR('[') PORT_CHAR('{')  // ゜ 「
 	PORT_BIT(0x20, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_BACKSPACE)  PORT_NAME("BS")                     PORT_CHAR(8)
 	PORT_BIT(0x10, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_SLASH)      PORT_NAME(u8"/  ?  \u30e1  \u30fb") PORT_CHAR('/') PORT_CHAR('?')  // メ ・
@@ -575,7 +596,7 @@ static INPUT_PORTS_START( fp1100 )
 	PORT_BIT(0x01, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_COLON)      PORT_NAME(u8";  +  \u30ec")         PORT_CHAR(';') PORT_CHAR('+')  // レ
 
 	PORT_START("KEY.12")
-	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_NUMLOCK)    PORT_NAME("STOP/CONT")
+	PORT_BIT(0x80, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_NUMLOCK)    PORT_NAME("STOP/CONT") PORT_CHANGED_MEMBER(DEVICE_SELF, fp1100_state, fkey_hit_cb, 12)
 	PORT_BIT(0x40, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_MINUS)      PORT_NAME(u8"-  =  \u30db")         PORT_CHAR('-') PORT_CHAR('=')  // ホ
 	PORT_BIT(0x20, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_BACKSLASH2) PORT_NAME(u8"¥  |  \u30fc")         PORT_CHAR(U'¥') PORT_CHAR('|') // ー
 	PORT_BIT(0x10, IP_ACTIVE_HIGH, IPT_KEYBOARD) PORT_CODE(KEYCODE_OPENBRACE)  PORT_NAME(u8"@  `  \u309b")         PORT_CHAR('@') PORT_CHAR('`')  // ゛
@@ -752,9 +773,39 @@ void fp1100_state::fp1100(machine_config &config)
 	SPEAKER(config, "mono").front_center();
 	BEEP(config, "beeper", 950) // guess
 		.add_route(ALL_OUTPUTS, "mono", 0.50); // inside the keyboard
+
+	INPUT_MERGER_ANY_HIGH(config, m_irqs_int[0]).output_handler().set(FUNC(fp1100_state::int_w<0>));
+	INPUT_MERGER_ANY_HIGH(config, m_irqs_int[1]).output_handler().set(FUNC(fp1100_state::int_w<1>));
+	INPUT_MERGER_ANY_HIGH(config, m_irqs_int[2]).output_handler().set(FUNC(fp1100_state::int_w<2>));
+	INPUT_MERGER_ANY_HIGH(config, m_irqs_int[3]).output_handler().set(FUNC(fp1100_state::int_w<3>));
+
+	FP1000_EXP_SLOT(config, m_slot[0], fp1000_exp_devices, nullptr);
+	m_slot[0]->set_iospace(m_maincpu, AS_IO);
+	m_slot[0]->inta_callback().set(m_irqs_int[0], FUNC(input_merger_device::in_w<0>));
+	m_slot[0]->intb_callback().set(m_irqs_int[1], FUNC(input_merger_device::in_w<0>));
+	m_slot[0]->intc_callback().set(m_irqs_int[2], FUNC(input_merger_device::in_w<0>));
+	m_slot[0]->intd_callback().set(m_irqs_int[3], FUNC(input_merger_device::in_w<0>));
+
+	FP1000_EXP_SLOT(config, m_slot[1], fp1000_exp_devices, nullptr);
+	m_slot[1]->set_iospace(m_maincpu, AS_IO);
+	m_slot[1]->inta_callback().set(m_irqs_int[0], FUNC(input_merger_device::in_w<1>));
+	m_slot[1]->intb_callback().set(m_irqs_int[1], FUNC(input_merger_device::in_w<1>));
+	m_slot[1]->intc_callback().set(m_irqs_int[2], FUNC(input_merger_device::in_w<1>));
+	m_slot[1]->intd_callback().set(m_irqs_int[3], FUNC(input_merger_device::in_w<1>));
 }
 
-// ROM definitions
+// TODO: chargen, keyboard ROM and key tops can be substituted on actual FP-1000/FP-1100
+// HN462732G-JKA to position E8 ("common for all languages")
+// HN462532G-G?? to position E21 (chargen)
+// - GKA Spain
+// - GLA Italy
+// - GMA France
+// - GNA Germany
+// - GPA UK
+// - GQA Netherlands
+// - GRA Norway/Denmark
+// - GSA Sweden/Finland
+// - GTA <default chargen, Japan?>
 
 ROM_START( fp1100 )
 	ROM_REGION( 0x9000, "bios", ROMREGION_ERASEFF )
@@ -770,6 +821,7 @@ ROM_START( fp1100 )
 	ROM_REGION( 0x3000, "sub_ipl", ROMREGION_ERASEFF )
 	ROM_LOAD( "sub1.rom", 0x0000, 0x1000, CRC(8feda489) SHA1(917d5b398b9e7b9a6bfa5e2f88c5b99923c3c2a3))
 	ROM_LOAD( "sub2.rom", 0x1000, 0x1000, CRC(359f007e) SHA1(0188d5a7b859075cb156ee55318611bd004128d7))
+	// Japan chargen ROM (GTA?)
 	ROM_LOAD( "sub3.rom", 0x2000, 0xf80, BAD_DUMP CRC(fb2b577a) SHA1(a9ae6b03e06ea2f5db30dfd51ebf5aede01d9672))
 ROM_END
 
@@ -783,15 +835,14 @@ ROM_START( fp1000 )
 	ROM_LOAD( "2l_a10_kkk_fp1000_basic.c1", 0x0000, 0x1000, CRC(9322dedd) SHA1(40a00684ced2b7ead53ca15a915d98f3fe00d3ba))
 
 	ROM_REGION( 0x3000, "sub_ipl", ROMREGION_ERASEFF )
-	ROM_LOAD( "jka_fp1000.e8",    0x0000, 0x1000, CRC(2aefa4e4) SHA1(b3cc5484426c19a7266d17ea5c4d55441b4e3be8))
-	ROM_LOAD( "jkc_fp1000.e21",   0x1000, 0x1000, CRC(67a668a9) SHA1(37fb9308505b47db36f8c341144ca3fe3fec64af))
-	ROM_LOAD( "upd7801g_118.bin", 0x2000, 0xf80, BAD_DUMP CRC(fb2b577a) SHA1(a9ae6b03e06ea2f5db30dfd51ebf5aede01d9672)) // Not dumped, borrowed from 'fp1100'
+	ROM_LOAD( "sub1.rom", 0x0000, 0x1000, BAD_DUMP CRC(8feda489) SHA1(917d5b398b9e7b9a6bfa5e2f88c5b99923c3c2a3)) // Not dumped, borrowed from 'fp1100'
+	ROM_LOAD( "jka_fp1000.e8",    0x1000, 0x1000, CRC(2aefa4e4) SHA1(b3cc5484426c19a7266d17ea5c4d55441b4e3be8))
+	// Spain chargen ROM (GKA really?)
+	ROM_LOAD( "jkc_fp1000.e21",   0x2000, 0x1000, CRC(67a668a9) SHA1(37fb9308505b47db36f8c341144ca3fe3fec64af))
 ROM_END
 
 } // anonymous namespace
 
-
-// Drivers
 
 COMP( 1983, fp1100, 0,      0, fp1100, fp1100, fp1100_state, empty_init, "Casio", "FP-1100", MACHINE_NOT_WORKING)
 COMP( 1982, fp1000, 0, fp1100, fp1100, fp1100, fp1100_state, empty_init, "Casio", "FP-1000", MACHINE_NOT_WORKING)

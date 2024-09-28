@@ -46,8 +46,8 @@ protected:
 	v25_common_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock, bool is_16bit, uint8_t prefetch_size, uint8_t prefetch_cycles, uint32_t chip_type);
 
 	// device-level overrides
-	virtual void device_start() override;
-	virtual void device_reset() override;
+	virtual void device_start() override ATTR_COLD;
+	virtual void device_reset() override ATTR_COLD;
 	virtual void device_post_load() override { notify_clock_changed(); }
 
 	// device_execute_interface overrides
@@ -55,7 +55,6 @@ protected:
 	virtual uint64_t execute_cycles_to_clocks(uint64_t cycles) const noexcept override { return cycles * m_PCK; }
 	virtual uint32_t execute_min_cycles() const noexcept override { return 1; }
 	virtual uint32_t execute_max_cycles() const noexcept override { return 80; }
-	virtual uint32_t execute_input_lines() const noexcept override { return 1; }
 	virtual uint32_t execute_default_irq_vector(int inputnum) const noexcept override { return 0xff; }
 	virtual bool execute_input_edge_triggered(int inputnum) const noexcept override { return inputnum == INPUT_LINE_NMI || (inputnum >= NEC_INPUT_LINE_INTP0 && inputnum <= NEC_INPUT_LINE_INTP2); }
 	virtual void execute_run() override;
@@ -173,7 +172,7 @@ private:
 	void nec_trap();
 	void external_int();
 
-	void ida_sfr_map(address_map &map);
+	void ida_sfr_map(address_map &map) ATTR_COLD;
 	uint8_t read_irqcontrol(int /*INTSOURCES*/ source, uint8_t priority);
 	void write_irqcontrol(int /*INTSOURCES*/ source, uint8_t d);
 	uint8_t p0_r();

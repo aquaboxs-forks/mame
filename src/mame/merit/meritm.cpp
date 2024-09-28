@@ -221,8 +221,8 @@ public:
 	void crt250_crt252_crt258(machine_config &config);
 
 protected:
-	virtual void machine_start() override;
-	virtual void video_start() override;
+	virtual void machine_start() override ATTR_COLD;
+	virtual void video_start() override ATTR_COLD;
 
 private:
 	required_device_array<z80pio_device, 2> m_z80pio;
@@ -278,12 +278,12 @@ private:
 	uint8_t binary_to_BCD(uint8_t data);
 	[[maybe_unused]] void vdp0_interrupt(int state);
 	[[maybe_unused]] void vdp1_interrupt(int state);
-	void crt250_crt258_io_map(address_map &map);
-	void crt250_io_map(address_map &map);
-	void crt250_map(address_map &map);
-	void crt250_questions_map(address_map &map);
-	void io_map(address_map &map);
-	void map(address_map &map);
+	void crt250_crt258_io_map(address_map &map) ATTR_COLD;
+	void crt250_io_map(address_map &map) ATTR_COLD;
+	void crt250_map(address_map &map) ATTR_COLD;
+	void crt250_questions_map(address_map &map) ATTR_COLD;
+	void io_map(address_map &map) ATTR_COLD;
+	void map(address_map &map) ATTR_COLD;
 };
 
 
@@ -697,12 +697,10 @@ static INPUT_PORTS_START(dodgecty)
 	PORT_BIT( 0x10, IP_ACTIVE_LOW, IPT_POKER_HOLD5 ) PORT_NAME( "Hold 5 / Double Up / Hi" )
 	PORT_BIT( 0x20, IP_ACTIVE_LOW, IPT_GAMBLE_BET )
 	PORT_BIT( 0x40, IP_ACTIVE_LOW, IPT_GAMBLE_DEAL )
-	PORT_BIT( 0x80, IP_ACTIVE_LOW, IPT_GAMBLE_STAND ) PORT_NAME( "Hi-Score" )
+	PORT_BIT( 0x80, IP_ACTIVE_LOW, IPT_GAMBLE_STAND )
 
 	PORT_MODIFY("PIO1_PORTB")
 	PORT_BIT( 0x02, IP_ACTIVE_LOW, IPT_COIN2 ) PORT_IMPULSE(2)
-	PORT_BIT( 0x08, IP_ACTIVE_LOW, IPT_OTHER ) PORT_CODE(KEYCODE_S) PORT_NAME("Setup / Test")
-	PORT_BIT( 0x10, IP_ACTIVE_LOW, IPT_GAMBLE_BOOK )
 INPUT_PORTS_END
 
 static INPUT_PORTS_START(mtjpoker)
