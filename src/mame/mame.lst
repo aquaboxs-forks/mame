@@ -1438,12 +1438,14 @@ zoo                             // (c) 2004  Astro Corp.
 blackbd                         //
 blackbda                        //
 blackbdb                        //
+carnivac                        //
 dslayrr                         //
 dslayrra                        //
 hawaii                          //
 hwparty                         //
 oligam                          //
 rasce                           //
+santacl                         //
 
 @source:astrocorp/hummer.cpp
 jackvent
@@ -8210,6 +8212,7 @@ v4bulblx                        // Bullion Blox
 v4bulblxa
 v4bulblxb
 v4bulblxc
+v4bulblxd
 v4cmaze                         // The Crystal Maze (v1.3)
 v4cmaze2                        // The New Crystal Maze Featuring Ocean Zone
 v4cmaze2_amld                   //
@@ -16236,6 +16239,9 @@ tascr30g
 @source:chessking/master.cpp
 master
 
+@source:chessking/pmicrodx.cpp
+pmicrodx
+
 @source:chessking/triomphe.cpp
 triomphe
 
@@ -19022,6 +19028,9 @@ newbrainmd                      //
 @source:handheld/chessking.cpp
 chesskng                        //
 
+@source:handheld/dbridgec.cpp
+dbridgec
+
 @source:handheld/gameking.cpp
 gamekin3                        //
 gameking                        //
@@ -19979,6 +19988,10 @@ rtpc015                         // IBM RT PC Model 015
 rtpc020                         // IBM RT PC Model 020
 rtpc025                         // IBM RT PC Model 025
 rtpca25                         // IBM RT PC Model A25
+
+@source:ibm/thinkpad600.cpp
+thinkpad600                     // IBM Thinkpad 600
+thinkpad600e                    // IBM Thinkpad 600E
 
 @source:ibm/thinkpad8xx.cpp
 thinkpad850                     // IBM Thinkpad 850
@@ -27085,15 +27098,39 @@ ep_xtraa                        //
 
 @source:maygay/maygayew.cpp
 mg_alad                         // Aladdin's Cave
+mg_alada                        //
+mg_aladb                        //
+mg_aladc                        //
 mg_bb                           // Big Break
+mg_bba                          //
+mg_bbb                          //
 mg_ewg                          // Each Way Gambler
+mg_ewga                         //
+mg_ewgb                         //
+mg_ewgc                         //
+mg_ewgd                         //
+mg_ewge                         //
+mg_ewgf                         //
+mg_ewgg                         //
 mg_gbr                          // Guinness Book Of Records
+mg_gbra                         //
+mg_gbrb                         //
 mg_jv                           // Jack & Vera
+mg_jva                          //
+mg_jvb                          //
+mg_jvc                          //
 mg_kf                           // Krypton Factor
+mg_kfa                          //
 mg_lug                          // London Underground
+mg_luga                         //
 mg_pbw                          // Pinball Wizard
+mg_pbwa                         //
+mg_pbwb                         //
 mg_risk                         // Risk
+mg_riska                        //
+mg_riskb                        //
 mg_scl                          // Super Clue
+mg_scla                         //
 
 @source:maygay/maygayv1.cpp
 mv1bon                          // Believe It Or Not
@@ -30991,8 +31028,9 @@ fiches                          //
 fiches12                        //
 
 @source:misc/mirax.cpp
-mirax                           // (c) 1985 Current Technologies
-miraxa                          // (c) 1985 Current Technologies
+mirax                           // (c) 1985 Current Technology, Inc.
+miraxa                          // (c) 1985 Current Technology, Inc.
+miraxb                          // (c) 1985 Current Technology, Inc.
 
 @source:misc/mirderby.cpp
 mirderby                        // (c) 1988 Home Data?
@@ -32211,6 +32249,9 @@ tomsadvs                        //
 @source:misc/toratora.cpp
 toratora                        // (c) 1980 Game Plan
 toratorab                       // (c) 1980 Game Plan
+
+@source:misc/triplex.cpp
+triplex                         // Torch Triple X
 
 @source:misc/triton.cpp
 triton41                        // 1978 Transam Triton L4.1
@@ -41962,6 +42003,9 @@ bp1200                          // (c) 1991 BP Microsystems
 @source:skeleton/br8641.cpp
 br8641                          //
 
+@source:skeleton/bullion2.cpp
+bullion2                        // (c) 1984 Inder
+
 @source:skeleton/busicom.cpp
 busicom                         //
 
@@ -42618,6 +42662,9 @@ tulip1                          // (c) 1983 CompuData
 @source:skeleton/tvcobrasd.cpp
 cobrasd                         // (c) 1998 TourVisión
 cobrasda                        // (c) 1997 TourVisión
+
+@source:skeleton/tvdear.cpp
+tvdear                          // (c)1996 Takara
 
 @source:skeleton/unistar.cpp
 unistar                         //
@@ -46481,7 +46528,6 @@ gmtt                            // 1998 Genius Master Table Top (Germany)
 lexipcm                         // LexiPC Mega 2000 (Germany)
 pc2000                          // 1993 PreComputer 2000
 pc2000s                         // 1993 PreComputer 2000 (Spain)
-primusex                        // 198? Yeno Primus Expert mit Stimme (Germany)
 
 @source:vtech/pc4.cpp
 pc4                             //
@@ -46503,6 +46549,9 @@ snotec                          // Bandai Super Note Club (Japan)
 snotecex                        // Bandai Super Note Club EX (Japan)
 snotecu                         // Bandai Super Note Club U (Japan)
 snotecug                        // Bandai Super Note Club U girlish (Japan)
+
+@source:vtech/primusex.cpp
+primusex                        // 1994 Yeno Primus Expert mit Stimme (Germany)
 
 @source:vtech/socrates.cpp
 iqunlimz                        // 1991 IQ Unlimited (Z80)
